@@ -1,0 +1,17 @@
+{
+  "name": "Italian Vocabulary Booster",
+  "short_name": "Italian Vocab",
+  "description": "Learn Italian vocabulary with flashcards, spaced repetition, audio scripts, and more",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#faf6f0",
+  "theme_color": "#8b2f3a",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

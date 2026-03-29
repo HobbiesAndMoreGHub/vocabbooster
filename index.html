@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Italian/English Vocabulary Booster</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b2f3a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Italian Vocab">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Italian/English Vocabulary Booster</h1>
+        <p class="subtitle">Impara l'italiano &mdash; Learn Italian</p>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab active" data-tab="dashboard">Dashboard</button>
+        <button class="tab" data-tab="bulkimport">Word Import</button>
+        <button class="tab" data-tab="wordbank">Word Bank</button>
+        <button class="tab" data-tab="srs">Daily Words</button>
+        <button class="tab" data-tab="flashcards">Flashcards</button>
+        <button class="tab" data-tab="memory">Memory Game</button>
+        <button class="tab" data-tab="audio">Audio Scripts</button>
+    </nav>
+
+    <main>
+        <!-- Dashboard Tab -->
+        <section id="dashboard" class="tab-content active">
+            <div class="dash-tasks" id="dash-tasks">
+                <h3 class="srs-section-title">Daily Tasks</h3>
+                <div id="dash-task-list"></div>
+            </div>
+
+            <div class="dash-progress-section">
+                <div class="dash-card-label">Progress: Easy / Learned</div>
+                <div class="dash-progress-bar-wrap">
+                    <div class="dash-progress-bar" id="dash-progress-bar"></div>
+                </div>
+                <div class="dash-progress-label" id="dash-progress-label">0%</div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="dash-card dash-card-large">
+                    <div class="dash-card-label">Total Words</div>
+                    <div class="dash-card-value" id="dash-total">0</div>
+                </div>
+                <div class="dash-card dash-card-green">
+                    <div class="dash-card-label">Easy / Learned</div>
+                    <div class="dash-card-value" id="dash-easy">0</div>
+                </div>
+                <div class="dash-card dash-card-gold">
+                    <div class="dash-card-label">Hard</div>
+                    <div class="dash-card-value" id="dash-hard">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-label">Normal</div>
+                    <div class="dash-card-value" id="dash-normal">0</div>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="dash-card">
+                    <div class="dash-card-label">Learned Today</div>
+                    <div class="dash-card-value" id="dash-today">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-label">Learned This Week</div>
+                    <div class="dash-card-value" id="dash-week">0</div>
+                </div>
+                <div class="dash-card">
+                    <div class="dash-card-label">Learned This Month</div>
+                    <div class="dash-card-value" id="dash-month">0</div>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="dash-card dash-card-wide">
+                    <div class="dash-card-label">Remaining to Learn</div>
+                    <div class="dash-card-value" id="dash-remaining">0</div>
+                    <div class="dash-card-sub">words not yet marked easy</div>
+                </div>
+                <div class="dash-card dash-card-wide dash-card-red">
+                    <div class="dash-card-label">Words Per Day to Learn All in 1 Year</div>
+                    <div class="dash-card-value" id="dash-per-day">0</div>
+                    <div class="dash-card-sub" id="dash-per-day-sub"></div>
+                </div>
+            </div>
+
+            <div class="dash-grid">
+                <div class="dash-card dash-card-wide">
+                    <div class="dash-card-label">My Daily Goal</div>
+                    <div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;margin:0.3rem 0;">
+                        <input type="number" id="dash-daily-goal" min="1" max="200" value="25" style="width:60px;font-size:1.2rem;text-align:center;padding:0.3rem;border:1.5px solid var(--border);border-radius:6px;">
+                        <span style="font-size:0.85rem;color:var(--text-muted);">words per day</span>
+                        <button id="dash-save-goal" class="btn-primary" style="font-size:0.8rem;padding:0.3rem 0.8rem;">Save</button>
+                    </div>
+                </div>
+                <div class="dash-card dash-card-wide">
+                    <div class="dash-card-label">At Current Pace</div>
+                    <div class="dash-card-value" id="dash-pace-days">0</div>
+                    <div class="dash-card-sub" id="dash-pace-sub"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Word Import Tab -->
+        <section id="bulkimport" class="tab-content">
+            <!-- API Settings -->
+            <div class="settings-bar">
+                <button id="settings-toggle" class="btn-secondary settings-toggle-btn">API Settings</button>
+                <span id="api-status" class="api-status disconnected">No API key</span>
+            </div>
+            <div id="settings-panel" class="settings-panel hidden">
+                <div class="settings-row">
+                    <label for="api-key-input">Anthropic API Key:</label>
+                    <input type="password" id="api-key-input" placeholder="sk-ant-...">
+                    <button id="save-api-key" class="btn-primary">Save Key</button>
+                    <button id="clear-api-key" class="btn-secondary">Clear</button>
+                </div>
+                <p class="settings-hint">
+                    With a Claude API key, the Word Import can translate words via AI.
+                    Your key is stored only in your browser's localStorage.
+                    Get a key at <strong>console.anthropic.com</strong>.
+                </p>
+                <div class="settings-row">
+                    <label for="model-select">Model:</label>
+                    <select id="model-select">
+                        <option value="claude-haiku-4-5-20251001" selected>Haiku 4.5 (fastest, cheapest)</option>
+                        <option value="claude-sonnet-4-5-20241022">Sonnet 3.5 (balanced)</option>
+                        <option value="claude-sonnet-4-20250514">Sonnet 4 (smart)</option>
+                        <option value="claude-opus-4-20250514">Opus 4 (most capable)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="import-input">
+                <div class="audio-row" style="margin-bottom:0.5rem;">
+                    <label for="import-direction">Direction:</label>
+                    <select id="import-direction">
+                        <option value="it-en">Italian → English (paste Italian words)</option>
+                        <option value="en-it">English → Italian (paste English words)</option>
+                    </select>
+                </div>
+                <label for="import-words-input" id="import-words-label">Paste Italian words (one per line, or comma-separated):</label>
+                <textarea id="import-words-input" rows="8" placeholder="mangiare&#10;dormire&#10;casa&#10;bellissimo&#10;correre"></textarea>
+                <div class="translator-actions">
+                    <button id="import-btn" class="btn-primary">Translate &amp; Import All</button>
+                    <button id="import-stop-btn" class="btn-danger hidden">Stop</button>
+                    <button id="import-dict-btn" class="btn-secondary" title="Load 3000+ words instantly, no API needed">Load Built-in Dictionary</button>
+                    <button id="import-cleanup-btn" class="btn-secondary" title="Remove words where Italian = English (failed translations)">Remove Untranslated</button>
+                    <button id="import-clear-btn" class="btn-secondary">Clear</button>
+                </div>
+            </div>
+
+            <div id="import-loading" class="hidden">
+                <div class="spinner"></div>
+                <span id="import-loading-text">Translating...</span>
+            </div>
+
+            <div id="import-results" class="hidden">
+                <h3 class="import-results-title">Results <span id="import-results-count"></span></h3>
+                <div id="import-results-list"></div>
+                <div class="translator-actions" style="margin-top: 1rem;">
+                    <button id="import-save-all" class="btn-primary">Save All to Word Bank</button>
+                    <button id="import-save-selected" class="btn-secondary">Save Selected</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Word Bank Tab -->
+        <section id="wordbank" class="tab-content">
+            <div class="wordbank-header">
+                <div class="wordbank-stats">
+                    <span id="word-count">0 words saved</span>
+                </div>
+                <div class="wordbank-controls">
+                    <input type="text" id="wordbank-search" placeholder="Search words...">
+                    <button id="add-word-btn" class="btn-secondary" title="Add word manually">+ Add Word</button>
+                    <button id="export-btn" class="btn-secondary" title="Export as CSV">Export CSV</button>
+                    <label for="import-csv-file" class="btn-secondary" style="cursor:pointer;display:inline-block;">Import CSV</label>
+                    <input type="file" id="import-csv-file" accept=".csv" style="display:none;">
+                    <button id="export-data-btn" class="btn-secondary" title="Export full backup with all settings, easy/hard marks, API key">Backup All Data</button>
+                    <label for="import-data-file" class="btn-secondary" style="cursor:pointer;display:inline-block;">Restore Data</label>
+                    <input type="file" id="import-data-file" accept=".json" style="display:none;">
+                    <button id="clear-wordbank-btn" class="btn-secondary" title="Clear all words from the word bank" style="background:#c0392b;color:#fff;">Clear Word Bank</button>
+                </div>
+            </div>
+
+            <div class="wordbank-letter-filter">
+                <button class="wb-letter-btn active" data-letter="">All</button>
+                <button class="wb-letter-btn" data-letter="a">A</button>
+                <button class="wb-letter-btn" data-letter="b">B</button>
+                <button class="wb-letter-btn" data-letter="c">C</button>
+                <button class="wb-letter-btn" data-letter="d">D</button>
+                <button class="wb-letter-btn" data-letter="e">E</button>
+                <button class="wb-letter-btn" data-letter="f">F</button>
+                <button class="wb-letter-btn" data-letter="g">G</button>
+                <button class="wb-letter-btn" data-letter="h">H</button>
+                <button class="wb-letter-btn" data-letter="i">I</button>
+                <button class="wb-letter-btn" data-letter="j">J</button>
+                <button class="wb-letter-btn" data-letter="k">K</button>
+                <button class="wb-letter-btn" data-letter="l">L</button>
+                <button class="wb-letter-btn" data-letter="m">M</button>
+                <button class="wb-letter-btn" data-letter="n">N</button>
+                <button class="wb-letter-btn" data-letter="o">O</button>
+                <button class="wb-letter-btn" data-letter="p">P</button>
+                <button class="wb-letter-btn" data-letter="q">Q</button>
+                <button class="wb-letter-btn" data-letter="r">R</button>
+                <button class="wb-letter-btn" data-letter="s">S</button>
+                <button class="wb-letter-btn" data-letter="t">T</button>
+                <button class="wb-letter-btn" data-letter="u">U</button>
+                <button class="wb-letter-btn" data-letter="v">V</button>
+                <button class="wb-letter-btn" data-letter="w">W</button>
+                <button class="wb-letter-btn" data-letter="x">X</button>
+                <button class="wb-letter-btn" data-letter="y">Y</button>
+                <button class="wb-letter-btn" data-letter="z">Z</button>
+            </div>
+
+            <div id="add-word-form" class="hidden">
+                <input type="text" id="new-italian" placeholder="Italian word">
+                <input type="text" id="new-english" placeholder="English translation">
+                <input type="text" id="new-notes" placeholder="Notes (optional)">
+                <button id="save-new-word" class="btn-primary">Save</button>
+                <button id="cancel-new-word" class="btn-secondary">Cancel</button>
+            </div>
+
+            <div class="wordbank-table-wrap">
+                <table id="wordbank-table">
+                    <thead>
+                        <tr>
+                            <th data-sort="italian">Italian <span class="sort-arrow"></span></th>
+                            <th data-sort="english">English <span class="sort-arrow"></span></th>
+                            <th>Notes</th>
+                            <th data-sort="date">Date Added <span class="sort-arrow"></span></th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="wordbank-body"></tbody>
+                </table>
+                <div id="wordbank-empty" class="empty-state">
+                    <p>Your word bank is empty.</p>
+                    <p>Translate a story and click words to save them, or add words manually.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Flashcards Tab -->
+        <section id="flashcards" class="tab-content">
+            <div id="flashcard-empty" class="empty-state">
+                <p>No words in your word bank yet.</p>
+                <p>Add words from the Story Translator or Word Bank tab to start studying.</p>
+            </div>
+
+            <div id="flashcard-area" class="hidden">
+                <!-- Mode toggle & progress -->
+                <div class="flashcard-topbar">
+                    <button id="fc-mode-toggle" class="btn-secondary fc-mode-btn">Italian &#8594; English</button>
+                    <select id="fc-filter" class="fc-filter-select">
+                        <option value="all">All Words</option>
+                        <option value="hard">Hard Only</option>
+                        <option value="easy">Easy Only</option>
+                        <option value="normal">Normal Only</option>
+                        <option value="srs-new">SRS: Today's New</option>
+                        <option value="srs-review">SRS: Today's Reviews</option>
+                        <option value="srs-all">SRS: All Today</option>
+                        <option value="srs-not-easy">SRS: Daily Not Easy</option>
+                        <option value="srs-easy-review">SRS: Easy Review</option>
+                    </select>
+                    <div class="flashcard-progress">
+                        <span id="fc-progress-text">1 / 10</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="fc-progress-bar"></div>
+                        </div>
+                    </div>
+                    <button id="fc-enrich-btn" class="btn-secondary fc-enrich-btn" title="Fetch grammar info for all words via Claude AI">Load Grammar Info</button>
+                </div>
+
+                <div class="flashcard-container" id="flashcard-container">
+                    <div class="flashcard" id="flashcard">
+                        <div class="flashcard-front">
+                            <span class="fc-hard-badge hidden" id="fc-hard-badge-front"></span>
+                            <span class="fc-label" id="fc-front-label">Italian</span>
+                            <span class="fc-word" id="fc-front-word"></span>
+                            <span class="fc-grammar" id="fc-front-grammar"></span>
+                            <div class="fc-conjugation" id="fc-front-conjugation"></div>
+                        </div>
+                        <div class="flashcard-back">
+                            <span class="fc-hard-badge hidden" id="fc-hard-badge-back"></span>
+                            <span class="fc-label" id="fc-back-label">English</span>
+                            <span class="fc-word" id="fc-back-word"></span>
+                            <span class="fc-grammar" id="fc-back-grammar"></span>
+                            <div class="fc-conjugation" id="fc-back-conjugation"></div>
+                            <span class="fc-notes" id="fc-back-notes"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flashcard-controls">
+                    <button id="fc-prev" class="btn-secondary">&#8592; Previous</button>
+                    <button id="fc-flip" class="btn-primary">Flip Card</button>
+                    <button id="fc-next" class="btn-secondary">Next &#8594;</button>
+                </div>
+                <div class="flashcard-extra-controls">
+                    <button id="fc-shuffle" class="btn-secondary">Shuffle</button>
+                    <button id="fc-mark-easy" class="btn-secondary">Mark Easy</button>
+                    <button id="fc-mark-hard" class="btn-secondary">Mark Hard</button>
+                    <button id="fc-replay50" class="btn-secondary">Replay Last 50</button>
+                    <button id="fc-restart" class="btn-secondary">Restart</button>
+                </div>
+                <div class="flashcard-settings">
+                    <label for="fc-multiplier">Hard/Easy frequency:</label>
+                    <input type="number" id="fc-multiplier" min="2" max="20" value="5">
+                    <span class="settings-hint">x multiplier &nbsp;|&nbsp; Space: flip/next &nbsp; 0: easy &nbsp; Ctrl/H: hard</span>
+                    <button id="fc-send-to-memory" class="btn-secondary" style="margin-left:0.5rem;">Send Last 50 to Memory Game</button>
+                </div>
+                <div class="flashcard-settings" style="margin-top:0.5rem;">
+                    <label><input type="checkbox" id="fc-autoplay"> Autoplay</label>
+                    <label for="fc-auto-front" class="audio-repeat-label">Front (sec):</label>
+                    <input type="number" id="fc-auto-front" min="1" max="30" value="5" style="width:50px;">
+                    <label for="fc-auto-back" class="audio-repeat-label">Back (sec):</label>
+                    <input type="number" id="fc-auto-back" min="1" max="30" value="3" style="width:50px;">
+                    <button id="fc-autoplay-btn" class="btn-secondary" disabled>Start Autoplay</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Spaced Repetition Tab -->
+        <section id="srs" class="tab-content">
+            <div id="srs-empty" class="empty-state hidden">
+                <p>Add words to your Word Bank first, then come here to start daily spaced repetition.</p>
+            </div>
+            <div id="srs-area">
+                <div class="srs-today">
+                    <h3 class="srs-section-title">Today's Session</h3>
+                    <div class="srs-today-stats" id="srs-today-stats"></div>
+                    <div class="srs-today-actions">
+                        <button id="srs-load-new" class="btn-primary">Load New Words</button>
+                        <button id="srs-load-extra-batch" class="btn-secondary">Load Extra Batch</button>
+                        <label for="srs-batch-size" class="audio-repeat-label">New words:</label>
+                        <input type="number" id="srs-batch-size" min="5" max="100" value="25" style="width:55px;">
+                        <label for="srs-easy-review-size" class="audio-repeat-label">Easy review:</label>
+                        <input type="number" id="srs-easy-review-size" min="0" max="200" value="50" style="width:55px;">
+                        <button id="clear-srs-btn" class="btn-secondary" title="Clear all daily words and batch history" style="background:#c0392b;color:#fff;margin-left:0.5rem;">Clear Daily Words</button>
+                    </div>
+
+                    <div id="srs-today-words" class="srs-word-section hidden">
+                        <h4 class="srs-subsection-title">
+                            <span id="srs-new-label">New Words</span>
+                            <span class="srs-badge srs-badge-new" id="srs-new-count">0</span>
+                        </h4>
+                        <div id="srs-new-list" class="srs-word-list"></div>
+
+                        <h4 class="srs-subsection-title" id="srs-review-header">
+                            <span>Reviews Due</span>
+                            <span class="srs-badge srs-badge-review" id="srs-review-count">0</span>
+                        </h4>
+                        <div id="srs-review-list" class="srs-word-list"></div>
+
+                        <h4 class="srs-subsection-title" id="srs-easy-review-header" style="display:none;">
+                            <span>Easy Review</span>
+                            <span class="srs-badge srs-badge-done" id="srs-easy-review-count">0</span>
+                        </h4>
+                        <div id="srs-easy-review-list" class="srs-word-list"></div>
+                    </div>
+                </div>
+
+                <div class="srs-history">
+                    <h3 class="srs-section-title">Batch History</h3>
+                    <div id="srs-batch-list"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Memory Game Tab -->
+        <section id="memory" class="tab-content">
+            <div id="memory-empty" class="empty-state">
+                <p>Add at least 6 words to your Word Bank to play the Memory Game.</p>
+            </div>
+            <div id="memory-area" class="hidden">
+                <div class="memory-controls">
+                    <label for="memory-source">Draw from:</label>
+                    <select id="memory-source">
+                        <option value="all">All Words</option>
+                        <option value="hard">Hard Only</option>
+                        <option value="normal">Normal Only</option>
+                        <option value="easy">Easy Only</option>
+                        <option value="flashcard">Flashcard Last 50</option>
+                        <option value="srs-new">SRS: Today's New</option>
+                        <option value="srs-review">SRS: Today's Reviews</option>
+                        <option value="srs-all">SRS: All Today</option>
+                        <option value="srs-not-easy">SRS: Daily Not Easy</option>
+                        <option value="srs-easy-review">SRS: Easy Review</option>
+                    </select>
+                    <label for="memory-pairs">Pairs:</label>
+                    <select id="memory-pairs">
+                        <option value="6">6 pairs</option>
+                        <option value="10" selected>10 pairs</option>
+                        <option value="15">15 pairs</option>
+                        <option value="20">20 pairs</option>
+                        <option value="25">25 pairs</option>
+                        <option value="30">30 pairs</option>
+                    </select>
+                    <button id="memory-load" class="btn-primary">Load Words</button>
+                    <button id="memory-start" class="btn-secondary">Replay Same Words</button>
+                    <label for="memory-sidebar-view">Show:</label>
+                    <select id="memory-sidebar-view">
+                        <option value="both">Italian + English</option>
+                        <option value="italian">Italian Only</option>
+                        <option value="english">English Only</option>
+                    </select>
+                    <span id="memory-stats" class="memory-stats">Moves: 0 | Matched: 0/0</span>
+                </div>
+                <div class="memory-layout">
+                    <div class="memory-sidebar" id="memory-sidebar">
+                        <h4 class="memory-sidebar-title">Word Set</h4>
+                        <div id="memory-word-list" class="memory-word-list"></div>
+                    </div>
+                    <div class="memory-main">
+                        <div id="memory-board" class="memory-board"></div>
+                        <div id="memory-win" class="memory-win hidden">
+                            <h3>You matched all pairs!</h3>
+                            <p id="memory-win-stats"></p>
+                            <button id="memory-replay-btn" class="btn-primary">Play Again (Same Words)</button>
+                            <button id="memory-new-btn" class="btn-secondary">New Words</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Audio Scripts Tab -->
+        <section id="audio" class="tab-content">
+            <div id="audio-empty" class="empty-state">
+                <p>Add words to your Word Bank first to generate audio scripts.</p>
+            </div>
+            <div id="audio-area" class="hidden">
+                <div class="audio-controls">
+                    <div class="audio-row">
+                        <label for="audio-order">Order:</label>
+                        <select id="audio-order">
+                            <option value="alphabetical">Alphabetical</option>
+                            <option value="shuffled">Shuffled</option>
+                        </select>
+                        <label for="audio-filter">Words:</label>
+                        <select id="audio-filter">
+                            <option value="all">All</option>
+                            <option value="hard">Hard Only</option>
+                            <option value="easy">Easy Only</option>
+                            <option value="normal">Normal Only</option>
+                            <option value="srs-new">SRS: Today's New</option>
+                            <option value="srs-review">SRS: Today's Reviews</option>
+                            <option value="srs-all">SRS: All Today</option>
+                            <option value="srs-not-easy">SRS: Daily Not Easy</option>
+                            <option value="srs-easy-review">SRS: Easy Review</option>
+                        </select>
+                        <label for="audio-letter-start">From:</label>
+                        <select id="audio-letter-start">
+                            <option value="">Any</option>
+                            <option value="a">A</option><option value="b">B</option><option value="c">C</option>
+                            <option value="d">D</option><option value="e">E</option><option value="f">F</option>
+                            <option value="g">G</option><option value="h">H</option><option value="i">I</option>
+                            <option value="j">J</option><option value="k">K</option><option value="l">L</option>
+                            <option value="m">M</option><option value="n">N</option><option value="o">O</option>
+                            <option value="p">P</option><option value="q">Q</option><option value="r">R</option>
+                            <option value="s">S</option><option value="t">T</option><option value="u">U</option>
+                            <option value="v">V</option><option value="w">W</option><option value="x">X</option>
+                            <option value="y">Y</option><option value="z">Z</option>
+                        </select>
+                        <label for="audio-letter-end">To:</label>
+                        <select id="audio-letter-end">
+                            <option value="">Any</option>
+                            <option value="a">A</option><option value="b">B</option><option value="c">C</option>
+                            <option value="d">D</option><option value="e">E</option><option value="f">F</option>
+                            <option value="g">G</option><option value="h">H</option><option value="i">I</option>
+                            <option value="j">J</option><option value="k">K</option><option value="l">L</option>
+                            <option value="m">M</option><option value="n">N</option><option value="o">O</option>
+                            <option value="p">P</option><option value="q">Q</option><option value="r">R</option>
+                            <option value="s">S</option><option value="t">T</option><option value="u">U</option>
+                            <option value="v">V</option><option value="w">W</option><option value="x">X</option>
+                            <option value="y">Y</option><option value="z">Z</option>
+                        </select>
+                        <label for="audio-count">Limit:</label>
+                        <select id="audio-count">
+                            <option value="0">All words</option>
+                            <option value="25">25 words</option>
+                            <option value="50" selected>50 words</option>
+                            <option value="100">100 words</option>
+                            <option value="250">250 words</option>
+                        </select>
+                    </div>
+                    <div class="audio-row">
+                        <label for="audio-voice-it">Italian voice:</label>
+                        <select id="audio-voice-it" class="audio-voice-select"></select>
+                        <label for="audio-voice-en">English voice:</label>
+                        <select id="audio-voice-en" class="audio-voice-select"></select>
+                    </div>
+                    <div class="audio-row">
+                        <label for="audio-speed">Speed:</label>
+                        <input type="range" id="audio-speed" min="0.5" max="1.5" step="0.1" value="0.8">
+                        <span id="audio-speed-label">0.8x</span>
+                        <label for="audio-pause">Between words (sec):</label>
+                        <input type="number" id="audio-pause" min="0.5" max="5" step="0.5" value="1.5" style="width:55px;">
+                        <label for="audio-sentence-pause">Between sentences (sec):</label>
+                        <input type="number" id="audio-sentence-pause" min="0.5" max="10" step="0.5" value="3" style="width:55px;">
+                        <label for="audio-slowdown">Slowdown per earlier repeat:</label>
+                        <input type="range" id="audio-slowdown" min="0" max="50" step="5" value="25">
+                        <span id="audio-slowdown-label">25%</span>
+                        <label style="margin-left:0.5rem;"><input type="checkbox" id="audio-en-normal-speed"> English always at 1.0x</label>
+                    </div>
+                    <div class="audio-row">
+                        <label>Repeat each word:</label>
+                        <label for="audio-repeat-hard" class="audio-repeat-label">Hard:</label>
+                        <input type="number" id="audio-repeat-hard" min="1" max="10" value="3" style="width:45px;">
+                        <label for="audio-repeat-normal" class="audio-repeat-label">Normal:</label>
+                        <input type="number" id="audio-repeat-normal" min="1" max="10" value="2" style="width:45px;">
+                        <label for="audio-repeat-easy" class="audio-repeat-label">Easy:</label>
+                        <input type="number" id="audio-repeat-easy" min="1" max="10" value="1" style="width:45px;">
+                    </div>
+                    <div class="audio-row">
+                        <label><input type="checkbox" id="audio-sentences"> Generate sentences using each word (requires API key, max 100 words)</label>
+                        <label for="audio-sentence-repeats" class="audio-repeat-label">Sentence repeats:</label>
+                        <input type="number" id="audio-sentence-repeats" min="1" max="5" value="2" style="width:45px;">
+                    </div>
+                    <div class="audio-row">
+                        <button id="audio-generate" class="btn-primary">Generate Script</button>
+                        <button id="audio-reshuffle" class="btn-secondary" disabled>Reshuffle</button>
+                        <button id="audio-play" class="btn-primary" disabled>Play</button>
+                        <button id="audio-pause-btn" class="btn-secondary" disabled>Pause</button>
+                        <button id="audio-stop" class="btn-secondary" disabled>Stop</button>
+                        <button id="audio-record" class="btn-secondary" disabled>Record as Audio File</button>
+                        <button id="audio-export" class="btn-secondary" disabled>Export Script (.txt)</button>
+                    </div>
+                </div>
+
+                <div id="audio-now-playing" class="audio-now-playing hidden">
+                    <span id="audio-now-word"></span>
+                    <div class="progress-bar" style="max-width:100%;">
+                        <div class="progress-fill" id="audio-progress-bar"></div>
+                    </div>
+                    <span id="audio-progress-text" class="settings-hint"></span>
+                </div>
+
+                <div id="audio-script-area" class="hidden">
+                    <h3 class="import-results-title">Script <span id="audio-script-count"></span></h3>
+                    <div id="audio-script-list" class="audio-script-list"></div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast notification -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="dictionary-5000.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js').catch(() => {});
+        }
+    </script>
+</body>
+</html>

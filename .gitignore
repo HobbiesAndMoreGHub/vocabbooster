@@ -1,0 +1,26 @@
+# Backups and personal data
+*.json.bak
+italian_learner_backup_*.json
+
+# Local launcher
+*.bat
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Editor
+.vscode/
+.claude/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Distribution folder (separate repo)
+distribution/
+
+# Wordlist processing files
+cleaned-wordlist.txt
+process_wordlist.py
+italian_word_bank.csv
