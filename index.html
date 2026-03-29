@@ -561,9 +561,10 @@
                     <div class="audio-row">
                         <button id="audio-generate" class="btn-primary">Generate Script</button>
                         <button id="audio-reshuffle" class="btn-secondary" disabled>Reshuffle</button>
-                        <button id="audio-play" class="btn-primary" disabled>Play</button>
+                        <button id="audio-play" class="btn-primary" disabled>Play (Browser TTS)</button>
                         <button id="audio-pause-btn" class="btn-secondary" disabled>Pause</button>
                         <button id="audio-stop" class="btn-secondary" disabled>Stop</button>
+                        <button id="audio-generate-file" class="btn-primary" disabled>Generate Audio File (OpenAI)</button>
                         <button id="audio-record" class="btn-secondary" disabled>Record as Audio File</button>
                         <button id="audio-export" class="btn-secondary" disabled>Export Script (.txt)</button>
                     </div>
@@ -575,6 +576,15 @@
                         <div class="progress-fill" id="audio-progress-bar"></div>
                     </div>
                     <span id="audio-progress-text" class="settings-hint"></span>
+                </div>
+
+                <div id="audio-file-area" class="hidden" style="margin:1rem 0;padding:1rem;background:var(--bg-card);border:1.5px solid var(--border);border-radius:var(--radius-md);">
+                    <h4 style="margin-bottom:0.5rem;font-family:var(--font-display);">Generated Audio File</h4>
+                    <audio id="audio-file-player" controls style="width:100%;margin-bottom:0.5rem;"></audio>
+                    <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+                        <a id="audio-file-download" class="btn-primary" style="text-decoration:none;text-align:center;padding:0.5rem 1rem;border-radius:var(--radius-sm);" download>Download MP3</a>
+                        <span id="audio-file-info" class="settings-hint" style="align-self:center;"></span>
+                    </div>
                 </div>
 
                 <div id="audio-script-area" class="hidden">

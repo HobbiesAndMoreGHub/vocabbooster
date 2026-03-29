@@ -714,6 +714,7 @@ function setupEventListeners() {
     document.getElementById('audio-stop').addEventListener('click', stopAudioScript);
     document.getElementById('audio-export').addEventListener('click', exportAudioScript);
     document.getElementById('audio-record').addEventListener('click', recordAudioScript);
+    document.getElementById('audio-generate-file').addEventListener('click', generateAudioFile);
     document.getElementById('audio-speed').addEventListener('input', (e) => {
         document.getElementById('audio-speed-label').textContent = e.target.value + 'x';
     });
@@ -3584,6 +3585,7 @@ async function generateAudioScript() {
     document.getElementById('audio-reshuffle').disabled = false;
     document.getElementById('audio-record').disabled = false;
     document.getElementById('audio-export').disabled = false;
+    document.getElementById('audio-generate-file').disabled = false;
 
     const sentMsg = audioSentences.length > 0 ? ` + ${audioSentences.length} sentences` : '';
     showToast(`Script generated: ${audioScript.length} words${sentMsg}.`);
@@ -3841,6 +3843,135 @@ async function speakWithOpenAI(text, lang, speed) {
             reject(err);
         });
     });
+}
+
+// ---------- Generate Full Audio File via OpenAI ----------
+async function generateAudioFile() {
+    if (audioScript.length === 0) {
+        showToast('Generate a script first.');
+        return;
+    }
+    if (!openaiApiKey) {
+        showToast('Please add your OpenAI API key in API Settings first.');
+        return;
+    }
+
+    const btn = document.getElementById('audio-generate-file');
+    const targetSpeed = parseFloat(document.getElementById('audio-speed').value) || 1.0;
+    const slowdownPct = parseFloat(document.getElementById('audio-slowdown').value) / 100;
+    const wordPause = parseFloat(document.getElementById('audio-pause').value) || 1.5;
+
+    btn.disabled = true;
+    btn.textContent = 'Preparing script...';
+
+    // Build expanded list: each entry = { italian, english, speed }
+    // For repeats: speed ramps from slow to target speed
+    const expanded = [];
+    for (const item of audioScript) {
+        const totalRepeats = item.repeats || 1;
+        for (let r = 0; r < totalRepeats; r++) {
+            let speed;
+            if (totalRepeats <= 1) {
+                speed = targetSpeed;
+            } else {
+                const stepsFromEnd = (totalRepeats - 1) - r;
+                speed = targetSpeed * (1 - slowdownPct * stepsFromEnd);
+                speed = Math.max(speed, 0.25);
+            }
+            // Round to 1 decimal to group similar speeds
+            speed = Math.round(speed * 10) / 10;
+            expanded.push({ italian: item.italian, english: item.english, speed });
+        }
+    }
+
+    // Group consecutive entries with the same speed into chunks
+    // Each chunk becomes one API call. Also respect ~3500 char limit per call.
+    const chunks = [];
+    let currentChunk = { speed: expanded[0].speed, text: '', count: 0 };
+
+    for (const entry of expanded) {
+        // Build text for this entry: "Italian word ... English translation ..."
+        // The "..." creates a natural pause in TTS output
+        const pauseDots = wordPause >= 3 ? '......' : wordPause >= 2 ? '....' : '...';
+        const entryText = `[Italian] ${entry.italian} ${pauseDots} ${entry.english} ${pauseDots} `;
+
+        // Start new chunk if speed changes or text would exceed limit
+        if (entry.speed !== currentChunk.speed || (currentChunk.text.length + entryText.length) > 3500) {
+            if (currentChunk.text) chunks.push(currentChunk);
+            currentChunk = { speed: entry.speed, text: '', count: 0 };
+        }
+        currentChunk.text += entryText;
+        currentChunk.count++;
+    }
+    if (currentChunk.text) chunks.push(currentChunk);
+
+    // Make API calls and collect MP3 blobs
+    const mp3Parts = [];
+    let processed = 0;
+    const totalEntries = expanded.length;
+
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        processed += chunk.count;
+        btn.textContent = `Generating audio... ${processed}/${totalEntries} words`;
+
+        try {
+            const voice = document.getElementById('openai-voice-select').value || 'nova';
+            const response = await fetch('https://api.openai.com/v1/audio/speech', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${openaiApiKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: 'tts-1',
+                    input: chunk.text,
+                    voice: voice,
+                    speed: Math.max(0.25, Math.min(4.0, chunk.speed)),
+                    response_format: 'mp3',
+                }),
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`API error ${response.status}: ${err}`);
+            }
+
+            const blob = await response.blob();
+            mp3Parts.push(blob);
+        } catch (err) {
+            console.error('OpenAI TTS chunk error:', err);
+            showToast(`Error generating audio chunk ${i + 1}: ${err.message}`);
+            btn.disabled = false;
+            btn.textContent = 'Generate Audio File (OpenAI)';
+            return;
+        }
+    }
+
+    // Concatenate all MP3 blobs into one file
+    btn.textContent = 'Finalizing...';
+    const finalBlob = new Blob(mp3Parts, { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(finalBlob);
+
+    // Show player and download link
+    const player = document.getElementById('audio-file-player');
+    player.src = url;
+
+    const downloadLink = document.getElementById('audio-file-download');
+    downloadLink.href = url;
+    const wordCount = audioScript.length;
+    const today = new Date().toISOString().slice(0, 10);
+    downloadLink.download = `italian_audio_${wordCount}words_${today}.mp3`;
+
+    const sizeMB = (finalBlob.size / (1024 * 1024)).toFixed(1);
+    document.getElementById('audio-file-info').textContent =
+        `${wordCount} words, ${chunks.length} chunks, ${sizeMB} MB`;
+
+    document.getElementById('audio-file-area').classList.remove('hidden');
+
+    btn.disabled = false;
+    btn.textContent = 'Generate Audio File (OpenAI)';
+    showToast(`Audio file ready! ${wordCount} words, ${sizeMB} MB. Play or download below.`);
 }
 
 function speakNextWord() {
