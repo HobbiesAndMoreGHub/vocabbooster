@@ -3788,9 +3788,16 @@ function playAudioScript() {
 // ---------- OpenAI TTS ----------
 let openaiAudioElement = null;
 
-async function speakWithOpenAI(text, lang) {
+async function speakWithOpenAI(text, lang, speed) {
     const voice = document.getElementById('openai-voice-select').value || 'nova';
-    const speed = parseFloat(document.getElementById('audio-speed').value) || 0.8;
+    if (!speed) speed = parseFloat(document.getElementById('audio-speed').value) || 1.0;
+
+    // Add language hint so OpenAI pronounces Italian words correctly
+    // Without this, short Italian words get pronounced as English
+    let input = text;
+    if (lang === 'it') {
+        input = `[Italian] ${text}`;
+    }
 
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
@@ -3800,9 +3807,9 @@ async function speakWithOpenAI(text, lang) {
         },
         body: JSON.stringify({
             model: 'tts-1',
-            input: text,
+            input: input,
             voice: voice,
-            speed: speed,
+            speed: Math.max(0.25, Math.min(4.0, speed)),
             response_format: 'mp3',
         }),
     });
@@ -3827,9 +3834,12 @@ async function speakWithOpenAI(text, lang) {
         };
         openaiAudioElement.onerror = (e) => {
             URL.revokeObjectURL(url);
-            reject(e);
+            reject(new Error('Audio playback failed'));
         };
-        openaiAudioElement.play();
+        openaiAudioElement.play().catch(err => {
+            URL.revokeObjectURL(url);
+            reject(err);
+        });
     });
 }
 
@@ -3911,22 +3921,23 @@ function speakNextWord() {
 
     // --- OpenAI TTS path ---
     if (ttsEngine === 'openai' && openaiApiKey) {
+        const enNormalSpeed = document.getElementById('audio-en-normal-speed').checked;
+        const enSpeed = enNormalSpeed ? 1.0 : speed;
         (async () => {
             try {
-                await speakWithOpenAI(item.italian, 'it');
+                await speakWithOpenAI(item.italian, 'it', speed);
                 if (!audioPlaying) return;
                 await new Promise(r => setTimeout(r, 500));
                 if (!audioPlaying) return;
-                await speakWithOpenAI(item.english, 'en');
+                await speakWithOpenAI(item.english, 'en', enSpeed);
+                if (!audioPlaying) return;
                 onWordDone();
             } catch (err) {
                 console.error('OpenAI TTS error:', err);
-                showToast('OpenAI TTS error — falling back to browser voice. Check your API key.');
-                ttsEngine = 'browser';
-                document.getElementById('audio-tts-engine').value = 'browser';
-                document.getElementById('tts-browser-voices').style.display = '';
-                document.getElementById('tts-openai-voices').style.display = 'none';
-                speakNextWord(); // retry with browser
+                if (!audioPlaying) return;
+                // Show error but try to continue with next word instead of crashing
+                showToast('OpenAI TTS error on "' + item.italian + '" — skipping. ' + err.message);
+                onWordDone();
             }
         })();
         return;
