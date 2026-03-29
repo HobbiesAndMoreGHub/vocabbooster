@@ -1,4 +1,4 @@
-const CACHE_NAME = 'italian-vocab-v1';
+const CACHE_NAME = 'italian-vocab-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -27,7 +27,7 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   // Network-first for API calls, cache-first for app assets
-  if (event.request.url.includes('api.anthropic.com')) {
+  if (event.request.url.includes('api.anthropic.com') || event.request.url.includes('api.openai.com')) {
     event.respondWith(fetch(event.request));
     return;
   }

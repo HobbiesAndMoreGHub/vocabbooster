@@ -522,6 +522,9 @@ let currentFlashcardIndex = 0;
 let sortColumn = null;
 let sortDirection = 'asc';
 let apiKey = '';
+let openaiApiKey = '';
+let ttsEngine = 'browser'; // 'browser' or 'openai'
+let openaiTTSVoice = 'nova';
 let selectedModel = 'claude-haiku-4-5-20251001';
 let flashcardMode = 'italian-first'; // or 'english-first'
 let wordBankLetterFilter = ''; // empty = all
@@ -543,6 +546,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateFlashcards();
     updateApiStatus();
     renderSRS();
+    // Restore TTS engine UI state
+    document.getElementById('audio-tts-engine').value = ttsEngine;
+    document.getElementById('tts-browser-voices').style.display = ttsEngine === 'browser' ? '' : 'none';
+    document.getElementById('tts-openai-voices').style.display = ttsEngine === 'openai' ? '' : 'none';
+    document.getElementById('openai-voice-select').value = openaiTTSVoice;
 });
 
 function setupEventListeners() {
@@ -569,6 +577,18 @@ function setupEventListeners() {
     document.getElementById('clear-api-key').addEventListener('click', clearApiKey);
     document.getElementById('model-select').addEventListener('change', (e) => {
         selectedModel = e.target.value;
+        saveToLocalStorage();
+    });
+    document.getElementById('save-openai-key').addEventListener('click', saveOpenAIKey);
+    document.getElementById('clear-openai-key').addEventListener('click', clearOpenAIKey);
+    document.getElementById('audio-tts-engine').addEventListener('change', (e) => {
+        ttsEngine = e.target.value;
+        document.getElementById('tts-browser-voices').style.display = ttsEngine === 'browser' ? '' : 'none';
+        document.getElementById('tts-openai-voices').style.display = ttsEngine === 'openai' ? '' : 'none';
+        saveToLocalStorage();
+    });
+    document.getElementById('openai-voice-select').addEventListener('change', (e) => {
+        openaiTTSVoice = e.target.value;
         saveToLocalStorage();
     });
 
@@ -904,6 +924,38 @@ function clearApiKey() {
     saveToLocalStorage();
     updateApiStatus();
     showToast('API key removed. Using dictionary + free API fallback.');
+}
+
+function saveOpenAIKey() {
+    const input = document.getElementById('openai-key-input');
+    const key = input.value.trim();
+    if (!key) {
+        showToast('Please enter an OpenAI API key.');
+        return;
+    }
+    openaiApiKey = key;
+    saveToLocalStorage();
+    updateApiStatus();
+    input.value = '';
+    // Auto-switch to OpenAI TTS
+    ttsEngine = 'openai';
+    document.getElementById('audio-tts-engine').value = 'openai';
+    document.getElementById('tts-browser-voices').style.display = 'none';
+    document.getElementById('tts-openai-voices').style.display = '';
+    saveToLocalStorage();
+    showToast('OpenAI key saved! Audio will now use natural-sounding voices.');
+}
+
+function clearOpenAIKey() {
+    openaiApiKey = '';
+    document.getElementById('openai-key-input').value = '';
+    ttsEngine = 'browser';
+    document.getElementById('audio-tts-engine').value = 'browser';
+    document.getElementById('tts-browser-voices').style.display = '';
+    document.getElementById('tts-openai-voices').style.display = 'none';
+    saveToLocalStorage();
+    updateApiStatus();
+    showToast('OpenAI key removed. Using browser TTS.');
 }
 
 function updateApiStatus() {
@@ -1537,6 +1589,9 @@ function exportAllData() {
         wordBank,
         translationCache,
         apiKey,
+        openaiApiKey,
+        ttsEngine,
+        openaiTTSVoice,
         selectedModel,
         flashcardMode,
         highRotationMultiplier,
@@ -1612,6 +1667,9 @@ function importAllData(e) {
             // Restore settings
             if (data.translationCache) translationCache = data.translationCache;
             if (data.apiKey) apiKey = data.apiKey;
+            if (data.openaiApiKey) openaiApiKey = data.openaiApiKey;
+            if (data.ttsEngine) ttsEngine = data.ttsEngine;
+            if (data.openaiTTSVoice) openaiTTSVoice = data.openaiTTSVoice;
             if (data.selectedModel) selectedModel = data.selectedModel;
             if (data.flashcardMode) flashcardMode = data.flashcardMode;
             if (data.highRotationMultiplier) highRotationMultiplier = data.highRotationMultiplier;
@@ -3691,13 +3749,19 @@ function reshuffleAudioScript() {
 
 function playAudioScript() {
     if (audioScript.length === 0) return;
-    if (!window.speechSynthesis) {
+
+    if (ttsEngine === 'openai' && !openaiApiKey) {
+        showToast('Please add your OpenAI API key in API Settings first.');
+        return;
+    }
+
+    if (ttsEngine === 'browser' && !window.speechSynthesis) {
         showToast('Your browser does not support text-to-speech.');
         return;
     }
 
-    if (audioPaused) {
-        // Resume
+    if (audioPaused && ttsEngine === 'browser') {
+        // Resume (browser TTS only — OpenAI doesn't support pause/resume)
         window.speechSynthesis.resume();
         audioPaused = false;
         document.getElementById('audio-pause-btn').textContent = 'Pause';
@@ -3706,7 +3770,7 @@ function playAudioScript() {
     }
 
     // Start from beginning
-    window.speechSynthesis.cancel();
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
     audioPlaying = true;
     audioPaused = false;
     audioIndex = 0;
@@ -3719,6 +3783,54 @@ function playAudioScript() {
     document.getElementById('audio-now-playing').classList.remove('hidden');
 
     speakNextWord();
+}
+
+// ---------- OpenAI TTS ----------
+let openaiAudioElement = null;
+
+async function speakWithOpenAI(text, lang) {
+    const voice = document.getElementById('openai-voice-select').value || 'nova';
+    const speed = parseFloat(document.getElementById('audio-speed').value) || 0.8;
+
+    const response = await fetch('https://api.openai.com/v1/audio/speech', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${openaiApiKey}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'tts-1',
+            input: text,
+            voice: voice,
+            speed: speed,
+            response_format: 'mp3',
+        }),
+    });
+
+    if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`OpenAI TTS error: ${response.status} — ${err}`);
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+
+    return new Promise((resolve, reject) => {
+        if (openaiAudioElement) {
+            openaiAudioElement.pause();
+            openaiAudioElement.src = '';
+        }
+        openaiAudioElement = new Audio(url);
+        openaiAudioElement.onended = () => {
+            URL.revokeObjectURL(url);
+            resolve();
+        };
+        openaiAudioElement.onerror = (e) => {
+            URL.revokeObjectURL(url);
+            reject(e);
+        };
+        openaiAudioElement.play();
+    });
 }
 
 function speakNextWord() {
@@ -3784,7 +3896,43 @@ function speakNextWord() {
         currentRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Get selected voices
+    // Advance to next repeat or next word
+    function onWordDone() {
+        if (!audioPlaying) return;
+        audioRepeatCount++;
+        if (audioRepeatCount < totalRepeats) {
+            setTimeout(() => speakNextWord(), pauseDuration * 0.5);
+        } else {
+            audioRepeatCount = 0;
+            audioIndex++;
+            setTimeout(() => speakNextWord(), pauseDuration);
+        }
+    }
+
+    // --- OpenAI TTS path ---
+    if (ttsEngine === 'openai' && openaiApiKey) {
+        (async () => {
+            try {
+                await speakWithOpenAI(item.italian, 'it');
+                if (!audioPlaying) return;
+                await new Promise(r => setTimeout(r, 500));
+                if (!audioPlaying) return;
+                await speakWithOpenAI(item.english, 'en');
+                onWordDone();
+            } catch (err) {
+                console.error('OpenAI TTS error:', err);
+                showToast('OpenAI TTS error — falling back to browser voice. Check your API key.');
+                ttsEngine = 'browser';
+                document.getElementById('audio-tts-engine').value = 'browser';
+                document.getElementById('tts-browser-voices').style.display = '';
+                document.getElementById('tts-openai-voices').style.display = 'none';
+                speakNextWord(); // retry with browser
+            }
+        })();
+        return;
+    }
+
+    // --- Browser TTS path ---
     const itVoices = window._itVoices || [];
     const enVoices = window._enVoices || [];
     const itVoiceIdx = parseInt(document.getElementById('audio-voice-it').value) || 0;
@@ -3819,15 +3967,7 @@ function speakNextWord() {
             enUtterance.onend = () => {
                 if (enFinished) return; // guard against double-fire
                 enFinished = true;
-                if (!audioPlaying) return;
-                audioRepeatCount++;
-                if (audioRepeatCount < totalRepeats) {
-                    setTimeout(() => speakNextWord(), pauseDuration * 0.5);
-                } else {
-                    audioRepeatCount = 0;
-                    audioIndex++;
-                    setTimeout(() => speakNextWord(), pauseDuration);
-                }
+                onWordDone();
             };
 
             window.speechSynthesis.speak(enUtterance);
@@ -3838,6 +3978,18 @@ function speakNextWord() {
 }
 
 function pauseAudioScript() {
+    if (ttsEngine === 'openai' && openaiAudioElement) {
+        if (audioPaused) {
+            openaiAudioElement.play();
+            audioPaused = false;
+            document.getElementById('audio-pause-btn').textContent = 'Pause';
+        } else {
+            openaiAudioElement.pause();
+            audioPaused = true;
+            document.getElementById('audio-pause-btn').textContent = 'Resume';
+        }
+        return;
+    }
     if (audioPaused) {
         window.speechSynthesis.resume();
         audioPaused = false;
@@ -3853,6 +4005,11 @@ function stopAudioScript() {
     audioPlaying = false;
     audioPaused = false;
     window.speechSynthesis.cancel();
+    if (openaiAudioElement) {
+        openaiAudioElement.pause();
+        openaiAudioElement.src = '';
+        openaiAudioElement = null;
+    }
     finishAudio();
 }
 
@@ -4167,6 +4324,9 @@ function saveToLocalStorage() {
         localStorage.setItem('italianLearner_wordBank', JSON.stringify(wordBank));
         localStorage.setItem('italianLearner_translationCache', JSON.stringify(translationCache));
         localStorage.setItem('italianLearner_apiKey', apiKey);
+        localStorage.setItem('italianLearner_openaiApiKey', openaiApiKey);
+        localStorage.setItem('italianLearner_ttsEngine', ttsEngine);
+        localStorage.setItem('italianLearner_openaiTTSVoice', openaiTTSVoice);
         localStorage.setItem('italianLearner_model', selectedModel);
         localStorage.setItem('italianLearner_flashcardMode', flashcardMode);
         localStorage.setItem('italianLearner_highRotationMultiplier', highRotationMultiplier.toString());
@@ -4194,6 +4354,12 @@ function loadFromLocalStorage() {
         if (tc) translationCache = JSON.parse(tc);
         const key = localStorage.getItem('italianLearner_apiKey');
         if (key) apiKey = key;
+        const oaiKey = localStorage.getItem('italianLearner_openaiApiKey');
+        if (oaiKey) openaiApiKey = oaiKey;
+        const ttsEng = localStorage.getItem('italianLearner_ttsEngine');
+        if (ttsEng) ttsEngine = ttsEng;
+        const oaiVoice = localStorage.getItem('italianLearner_openaiTTSVoice');
+        if (oaiVoice) openaiTTSVoice = oaiVoice;
         const model = localStorage.getItem('italianLearner_model');
         if (model) selectedModel = model;
         const mode = localStorage.getItem('italianLearner_flashcardMode');
@@ -4217,6 +4383,9 @@ function autoBackup() {
         wordBank,
         translationCache,
         apiKey,
+        openaiApiKey,
+        ttsEngine,
+        openaiTTSVoice,
         selectedModel,
         flashcardMode,
         highRotationMultiplier,

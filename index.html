@@ -139,6 +139,17 @@
                         <option value="claude-opus-4-20250514">Opus 4 (most capable)</option>
                     </select>
                 </div>
+                <hr style="margin:0.75rem 0;border-color:var(--border);">
+                <div class="settings-row">
+                    <label for="openai-key-input">OpenAI API Key (for TTS):</label>
+                    <input type="password" id="openai-key-input" placeholder="sk-...">
+                    <button id="save-openai-key" class="btn-primary">Save Key</button>
+                    <button id="clear-openai-key" class="btn-secondary">Clear</button>
+                </div>
+                <p class="settings-hint">
+                    With an OpenAI API key, audio playback uses natural-sounding voices instead of robotic browser TTS.
+                    Get a key at <strong>platform.openai.com/api-keys</strong>.
+                </p>
             </div>
 
             <div class="import-input">
@@ -497,10 +508,28 @@
                         </select>
                     </div>
                     <div class="audio-row">
-                        <label for="audio-voice-it">Italian voice:</label>
-                        <select id="audio-voice-it" class="audio-voice-select"></select>
-                        <label for="audio-voice-en">English voice:</label>
-                        <select id="audio-voice-en" class="audio-voice-select"></select>
+                        <label for="audio-tts-engine">TTS Engine:</label>
+                        <select id="audio-tts-engine">
+                            <option value="browser">Browser (free, robotic)</option>
+                            <option value="openai">OpenAI (natural, requires key)</option>
+                        </select>
+                        <span id="tts-browser-voices">
+                            <label for="audio-voice-it">Italian voice:</label>
+                            <select id="audio-voice-it" class="audio-voice-select"></select>
+                            <label for="audio-voice-en">English voice:</label>
+                            <select id="audio-voice-en" class="audio-voice-select"></select>
+                        </span>
+                        <span id="tts-openai-voices" style="display:none;">
+                            <label for="openai-voice-select">Voice:</label>
+                            <select id="openai-voice-select">
+                                <option value="alloy">Alloy (neutral)</option>
+                                <option value="echo">Echo (male)</option>
+                                <option value="fable">Fable (British)</option>
+                                <option value="nova" selected>Nova (female)</option>
+                                <option value="onyx">Onyx (deep male)</option>
+                                <option value="shimmer">Shimmer (soft female)</option>
+                            </select>
+                        </span>
                     </div>
                     <div class="audio-row">
                         <label for="audio-speed">Speed:</label>
