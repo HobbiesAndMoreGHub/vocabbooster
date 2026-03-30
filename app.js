@@ -3660,10 +3660,10 @@ function renderAudioScriptList() {
     // Estimate recording time
     const speed = parseFloat(document.getElementById('audio-speed').value) || 1.0;
     const wordPause = parseFloat(document.getElementById('audio-pause').value) || 1.5;
-    const sentPause = parseFloat(document.getElementById('audio-sentence-pause').value) || 3;
+    const itEnGap = parseFloat(document.getElementById('audio-sentence-pause').value) || 1.5;
     const slowdown = parseFloat(document.getElementById('audio-slowdown').value) / 100 || 0;
 
-    // Each play: ~1 sec Italian at speed + 0.5 sec gap + ~1 sec English at speed + pause
+    // Each play: ~1 sec Italian at speed + gap + ~1 sec English at speed + pause
     // Speed < 1 means slower = longer. Base word duration ~1 sec, adjusted by 1/speed
     let totalSec = 0;
     for (const item of audioScript) {
@@ -3675,7 +3675,7 @@ function renderAudioScriptList() {
                 repSpeed = speed * (1 - slowdown * stepsFromEnd);
                 repSpeed = Math.max(repSpeed, 0.3);
             }
-            totalSec += (1 / repSpeed) + 0.5 + (1 / speed) + (r < reps - 1 ? wordPause * 0.5 : wordPause);
+            totalSec += (1 / repSpeed) + itEnGap + (1 / speed) + (r < reps - 1 ? wordPause * 0.5 : wordPause);
         }
     }
     for (const s of audioSentences) {
@@ -4001,8 +4001,7 @@ function speakNextWord() {
     const targetSpeed = parseFloat(document.getElementById('audio-speed').value);
     const slowdownPct = parseFloat(document.getElementById('audio-slowdown').value) / 100;
     const wordPause = parseFloat(document.getElementById('audio-pause').value) * 1000;
-    const sentencePause = parseFloat(document.getElementById('audio-sentence-pause').value) * 1000;
-    const pauseDuration = audioPhase === 'sentences' ? sentencePause : wordPause;
+    const itEnPause = parseFloat(document.getElementById('audio-sentence-pause').value) * 1000;
     const totalRepeats = item.repeats || 1;
 
     // Speed ramp: last repeat = target speed, earlier repeats are slower
@@ -4042,11 +4041,11 @@ function speakNextWord() {
         if (!audioPlaying) return;
         audioRepeatCount++;
         if (audioRepeatCount < totalRepeats) {
-            setTimeout(() => speakNextWord(), pauseDuration * 0.5);
+            setTimeout(() => speakNextWord(), wordPause * 0.5);
         } else {
             audioRepeatCount = 0;
             audioIndex++;
-            setTimeout(() => speakNextWord(), pauseDuration);
+            setTimeout(() => speakNextWord(), wordPause);
         }
     }
 
@@ -4058,7 +4057,7 @@ function speakNextWord() {
             try {
                 await speakWithOpenAI(item.italian, 'it', speed);
                 if (!audioPlaying) return;
-                await new Promise(r => setTimeout(r, 500));
+                await new Promise(r => setTimeout(r, itEnPause));
                 if (!audioPlaying) return;
                 await speakWithOpenAI(item.english, 'en', enSpeed);
                 if (!audioPlaying) return;
@@ -4113,7 +4112,7 @@ function speakNextWord() {
             };
 
             window.speechSynthesis.speak(enUtterance);
-        }, 500);
+        }, itEnPause);
     };
 
     window.speechSynthesis.speak(itUtterance);
@@ -4300,7 +4299,7 @@ async function recordAudioScript() {
         await playAudioScriptForRecording();
 
         // Add a small tail of silence
-        await new Promise(r => setTimeout(r, 500));
+        await new Promise(r => setTimeout(r, itEnPause));
 
         // Stop recording
         audioRecorder.stop();
@@ -4371,8 +4370,7 @@ function speakNextWordForRecording(onComplete) {
     const targetSpeed = parseFloat(document.getElementById('audio-speed').value);
     const slowdownPct = parseFloat(document.getElementById('audio-slowdown').value) / 100;
     const wordPause = parseFloat(document.getElementById('audio-pause').value) * 1000;
-    const sentencePause = parseFloat(document.getElementById('audio-sentence-pause').value) * 1000;
-    const pauseDuration = audioPhase === 'sentences' ? sentencePause : wordPause;
+    const itEnPause = parseFloat(document.getElementById('audio-sentence-pause').value) * 1000;
     const totalRepeats = item.repeats || 1;
 
     // Speed ramp: last repeat = target speed, earlier repeats are slower
@@ -4445,16 +4443,16 @@ function speakNextWordForRecording(onComplete) {
                 if (!audioPlaying) { onComplete(); return; }
                 audioRepeatCount++;
                 if (audioRepeatCount < totalRepeats) {
-                    setTimeout(() => speakNextWordForRecording(onComplete), pauseDuration * 0.5);
+                    setTimeout(() => speakNextWordForRecording(onComplete), wordPause * 0.5);
                 } else {
                     audioRepeatCount = 0;
                     audioIndex++;
-                    setTimeout(() => speakNextWordForRecording(onComplete), pauseDuration);
+                    setTimeout(() => speakNextWordForRecording(onComplete), wordPause);
                 }
             };
 
             window.speechSynthesis.speak(enUtterance);
-        }, 500);
+        }, itEnPause);
     };
 
     window.speechSynthesis.speak(itUtterance);
