@@ -556,7 +556,13 @@
                         <input type="number" id="audio-repeat-easy" min="1" max="10" value="1" style="width:45px;">
                     </div>
                     <div class="audio-row">
-                        <label><input type="checkbox" id="audio-sentences"> Generate sentences using each word (requires API key, max 100 words)</label>
+                        <label for="audio-content-mode">Content:</label>
+                        <select id="audio-content-mode">
+                            <option value="words">Words only</option>
+                            <option value="both">Words + Sentences</option>
+                            <option value="sentences">Sentences only</option>
+                        </select>
+                        <span class="settings-hint">(Sentences require API key, max 100 words)</span>
                         <label for="audio-sentence-repeats" class="audio-repeat-label">Sentence repeats:</label>
                         <input type="number" id="audio-sentence-repeats" min="1" max="5" value="2" style="width:45px;">
                     </div>

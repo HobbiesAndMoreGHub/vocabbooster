@@ -3473,7 +3473,8 @@ async function generateAudioScript() {
     const order = document.getElementById('audio-order').value;
     const filter = document.getElementById('audio-filter').value;
     const limit = parseInt(document.getElementById('audio-count').value);
-    const wantSentences = document.getElementById('audio-sentences').checked;
+    const contentMode = document.getElementById('audio-content-mode').value; // 'words', 'both', 'sentences'
+    const wantSentences = contentMode === 'both' || contentMode === 'sentences';
 
     // Filter words
     let words;
@@ -3534,10 +3535,13 @@ async function generateAudioScript() {
     }
 
     // Limit
-    audioScript = limit > 0 ? deduped.slice(0, limit) : deduped;
+    const limitedWords = limit > 0 ? deduped.slice(0, limit) : deduped;
+
+    // In "sentences only" mode, words are only used to generate sentences
+    audioScript = contentMode === 'sentences' ? [] : limitedWords;
 
     // Cap at 100 for sentence generation
-    const sentenceWords = audioScript.slice(0, 100);
+    const sentenceWords = limitedWords.slice(0, 100);
 
     // Generate sentences if requested
     audioSentences = [];
@@ -3587,8 +3591,10 @@ async function generateAudioScript() {
     document.getElementById('audio-export').disabled = false;
     document.getElementById('audio-generate-file').disabled = false;
 
-    const sentMsg = audioSentences.length > 0 ? ` + ${audioSentences.length} sentences` : '';
-    showToast(`Script generated: ${audioScript.length} words${sentMsg}.`);
+    const wordMsg = audioScript.length > 0 ? `${audioScript.length} words` : '';
+    const sentMsg = audioSentences.length > 0 ? `${audioSentences.length} sentences` : '';
+    const combined = [wordMsg, sentMsg].filter(Boolean).join(' + ');
+    showToast(`Script generated: ${combined}.`);
 }
 
 function audioEasyHardBtns(italian) {
