@@ -3682,7 +3682,7 @@ function renderAudioScriptList() {
         const reps = s.repeats || 1;
         // Sentences ~3 sec base
         for (let r = 0; r < reps; r++) {
-            totalSec += (3 / speed) + 0.5 + (3 / speed) + (r < reps - 1 ? sentPause * 0.5 : sentPause);
+            totalSec += (3 / speed) + itEnGap + (3 / speed) + (r < reps - 1 ? wordPause * 0.5 : wordPause);
         }
     }
 
