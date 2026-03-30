@@ -3660,11 +3660,10 @@ function renderAudioScriptList() {
     // Estimate recording time
     const speed = parseFloat(document.getElementById('audio-speed').value) || 1.0;
     const wordPause = parseFloat(document.getElementById('audio-pause').value) || 1.5;
+    const sentGap = parseFloat(document.getElementById('audio-sent-gap').value) || 3;
     const itEnGap = parseFloat(document.getElementById('audio-sentence-pause').value) || 1.5;
     const slowdown = parseFloat(document.getElementById('audio-slowdown').value) / 100 || 0;
 
-    // Each play: ~1 sec Italian at speed + gap + ~1 sec English at speed + pause
-    // Speed < 1 means slower = longer. Base word duration ~1 sec, adjusted by 1/speed
     let totalSec = 0;
     for (const item of audioScript) {
         const reps = item.repeats || 1;
@@ -3680,9 +3679,8 @@ function renderAudioScriptList() {
     }
     for (const s of audioSentences) {
         const reps = s.repeats || 1;
-        // Sentences ~3 sec base
         for (let r = 0; r < reps; r++) {
-            totalSec += (3 / speed) + itEnGap + (3 / speed) + (r < reps - 1 ? wordPause * 0.5 : wordPause);
+            totalSec += (3 / speed) + itEnGap + (3 / speed) + (r < reps - 1 ? sentGap * 0.5 : sentGap);
         }
     }
 
@@ -4001,7 +3999,9 @@ function speakNextWord() {
     const targetSpeed = parseFloat(document.getElementById('audio-speed').value);
     const slowdownPct = parseFloat(document.getElementById('audio-slowdown').value) / 100;
     const wordPause = parseFloat(document.getElementById('audio-pause').value) * 1000;
+    const sentGap = parseFloat(document.getElementById('audio-sent-gap').value) * 1000;
     const itEnPause = parseFloat(document.getElementById('audio-sentence-pause').value) * 1000;
+    const betweenPause = audioPhase === 'sentences' ? sentGap : wordPause;
     const totalRepeats = item.repeats || 1;
 
     // Speed ramp: last repeat = target speed, earlier repeats are slower
@@ -4011,9 +4011,9 @@ function speakNextWord() {
     if (totalRepeats <= 1) {
         speed = targetSpeed;
     } else {
-        const stepsFromEnd = (totalRepeats - 1) - audioRepeatCount; // 2,1,0 for 3 repeats
+        const stepsFromEnd = (totalRepeats - 1) - audioRepeatCount;
         speed = targetSpeed * (1 - slowdownPct * stepsFromEnd);
-        speed = Math.max(speed, 0.3); // floor so it's never inaudibly slow
+        speed = Math.max(speed, 0.3);
     }
 
     // Update UI
@@ -4036,16 +4036,16 @@ function speakNextWord() {
         currentRow.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
-    // Advance to next repeat or next word
+    // Advance to next repeat or next word/sentence
     function onWordDone() {
         if (!audioPlaying) return;
         audioRepeatCount++;
         if (audioRepeatCount < totalRepeats) {
-            setTimeout(() => speakNextWord(), wordPause * 0.5);
+            setTimeout(() => speakNextWord(), betweenPause * 0.5);
         } else {
             audioRepeatCount = 0;
             audioIndex++;
-            setTimeout(() => speakNextWord(), wordPause);
+            setTimeout(() => speakNextWord(), betweenPause);
         }
     }
 
@@ -4370,19 +4370,18 @@ function speakNextWordForRecording(onComplete) {
     const targetSpeed = parseFloat(document.getElementById('audio-speed').value);
     const slowdownPct = parseFloat(document.getElementById('audio-slowdown').value) / 100;
     const wordPause = parseFloat(document.getElementById('audio-pause').value) * 1000;
+    const sentGap = parseFloat(document.getElementById('audio-sent-gap').value) * 1000;
     const itEnPause = parseFloat(document.getElementById('audio-sentence-pause').value) * 1000;
+    const betweenPause = audioPhase === 'sentences' ? sentGap : wordPause;
     const totalRepeats = item.repeats || 1;
 
-    // Speed ramp: last repeat = target speed, earlier repeats are slower
-    // For 3 repeats at 25% slowdown: steps are 50%, 75%, 100% of target
-    // For 1 repeat: always target speed
     let speed;
     if (totalRepeats <= 1) {
         speed = targetSpeed;
     } else {
-        const stepsFromEnd = (totalRepeats - 1) - audioRepeatCount; // 2,1,0 for 3 repeats
+        const stepsFromEnd = (totalRepeats - 1) - audioRepeatCount;
         speed = targetSpeed * (1 - slowdownPct * stepsFromEnd);
-        speed = Math.max(speed, 0.3); // floor so it's never inaudibly slow
+        speed = Math.max(speed, 0.3);
     }
 
     // Update UI
@@ -4396,7 +4395,6 @@ function speakNextWordForRecording(onComplete) {
     document.getElementById('audio-progress-bar').style.width =
         `${(currentPos / totalItems) * 100}%`;
 
-    // Highlight current row
     document.querySelectorAll('.audio-script-row').forEach(r => r.classList.remove('playing'));
     const rowIndex = audioPhase === 'words' ? audioIndex : audioScript.length + audioIndex;
     const currentRow = document.querySelector(`.audio-script-row[data-index="${rowIndex}"]`);
@@ -4443,11 +4441,11 @@ function speakNextWordForRecording(onComplete) {
                 if (!audioPlaying) { onComplete(); return; }
                 audioRepeatCount++;
                 if (audioRepeatCount < totalRepeats) {
-                    setTimeout(() => speakNextWordForRecording(onComplete), wordPause * 0.5);
+                    setTimeout(() => speakNextWordForRecording(onComplete), betweenPause * 0.5);
                 } else {
                     audioRepeatCount = 0;
                     audioIndex++;
-                    setTimeout(() => speakNextWordForRecording(onComplete), wordPause);
+                    setTimeout(() => speakNextWordForRecording(onComplete), betweenPause);
                 }
             };
 
