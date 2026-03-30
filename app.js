@@ -3754,7 +3754,7 @@ function reshuffleAudioScript() {
 }
 
 function playAudioScript() {
-    if (audioScript.length === 0) return;
+    if (audioScript.length === 0 && audioSentences.length === 0) return;
 
     if (ttsEngine === 'openai' && !openaiApiKey) {
         showToast('Please add your OpenAI API key in API Settings first.');
@@ -3781,7 +3781,7 @@ function playAudioScript() {
     audioPaused = false;
     audioIndex = 0;
     audioRepeatCount = 0;
-    audioPhase = 'words';
+    audioPhase = audioScript.length > 0 ? 'words' : 'sentences';
 
     document.getElementById('audio-play').disabled = true;
     document.getElementById('audio-pause-btn').disabled = false;
@@ -3851,7 +3851,7 @@ async function speakWithOpenAI(text, lang, speed) {
 
 // ---------- Generate Full Audio File via OpenAI ----------
 async function generateAudioFile() {
-    if (audioScript.length === 0) {
+    if (audioScript.length === 0 && audioSentences.length === 0) {
         showToast('Generate a script first.');
         return;
     }
@@ -4327,14 +4327,14 @@ async function recordAudioScript() {
 // Plays the entire script and returns a Promise that resolves when done
 function playAudioScriptForRecording() {
     return new Promise((resolve) => {
-        if (audioScript.length === 0) { resolve(); return; }
+        if (audioScript.length === 0 && audioSentences.length === 0) { resolve(); return; }
 
         window.speechSynthesis.cancel();
         audioPlaying = true;
         audioPaused = false;
         audioIndex = 0;
         audioRepeatCount = 0;
-        audioPhase = 'words';
+        audioPhase = audioScript.length > 0 ? 'words' : 'sentences';
 
         document.getElementById('audio-pause-btn').disabled = false;
         document.getElementById('audio-stop').disabled = false;
