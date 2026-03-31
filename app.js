@@ -3766,12 +3766,9 @@ function playAudioScript() {
         return;
     }
 
-    if (audioPaused && ttsEngine === 'browser') {
-        // Resume (browser TTS only — OpenAI doesn't support pause/resume)
-        window.speechSynthesis.resume();
-        audioPaused = false;
-        document.getElementById('audio-pause-btn').textContent = 'Pause';
-        document.getElementById('audio-pause-btn').disabled = false;
+    if (audioPaused) {
+        // Resume from where we paused
+        pauseAudioScript(); // toggles pause off and calls speakNextWord
         return;
     }
 
@@ -3979,7 +3976,8 @@ async function generateAudioFile() {
 }
 
 function speakNextWord() {
-    if (!audioPlaying) { finishAudio(); return; }
+    if (!audioPlaying && !audioPaused) { finishAudio(); return; }
+    if (!audioPlaying) return; // paused — don't proceed or finish
 
     // Check if we need to transition from words to sentences
     if (audioPhase === 'words' && audioIndex >= audioScript.length) {
@@ -4137,13 +4135,17 @@ function pauseAudioScript() {
         }
         return;
     }
+    // Browser TTS: speechSynthesis.pause()/resume() is broken in Chrome.
+    // Instead, we cancel speech and save position. Resume replays from that position.
     if (audioPaused) {
-        window.speechSynthesis.resume();
         audioPaused = false;
+        audioPlaying = true;
         document.getElementById('audio-pause-btn').textContent = 'Pause';
+        speakNextWord(); // replay from saved audioIndex/audioRepeatCount
     } else {
-        window.speechSynthesis.pause();
         audioPaused = true;
+        audioPlaying = false;
+        window.speechSynthesis.cancel();
         document.getElementById('audio-pause-btn').textContent = 'Resume';
     }
 }
