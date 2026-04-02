@@ -3701,6 +3701,25 @@ function renderAudioScriptList() {
 async function fetchSentences(italianWords) {
     try {
         const wordList = italianWords.join(', ');
+
+        // Build a randomly sampled list of easy word bank words for the prompt
+        const targetSet = new Set(italianWords.map(w => w.toLowerCase()));
+        const easyWords = wordBank
+            .filter(w => w.isEasy && !targetSet.has(w.italian.toLowerCase()))
+            .map(w => w.italian.toLowerCase());
+        // Shuffle (Fisher-Yates) then take up to 300
+        for (let i = easyWords.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [easyWords[i], easyWords[j]] = [easyWords[j], easyWords[i]];
+        }
+        const knownWordsSnippet = easyWords.length > 0
+            ? easyWords.slice(0, 300).join(', ')
+            : '';
+
+        const knownWordsInstruction = knownWordsSnippet
+            ? `\n\nThe learner already knows these Italian words:\n[${knownWordsSnippet}]\n\nWhen constructing each sentence, strongly prefer using words from this known list. Try to combine multiple known words into each sentence where it sounds natural. For any additional words not on this list, use only common, beginner-level vocabulary (articles, basic verbs like essere/avere/fare, simple prepositions, etc.). The goal is to maximize comprehension — every sentence should feel almost fully readable to the learner.`
+            : '';
+
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -3718,7 +3737,7 @@ async function fetchSentences(italianWords) {
 
 Format: {"word": {"italian": "Italian sentence here.", "english": "English translation here."}}
 
-Keep sentences simple and natural — suitable for a beginner/intermediate learner.
+Keep sentences simple and natural — suitable for a beginner/intermediate learner.${knownWordsInstruction}
 
 Words: ${wordList}`,
                 }],
@@ -4462,6 +4481,241 @@ function speakNextWordForRecording(onComplete) {
     };
 
     window.speechSynthesis.speak(itUtterance);
+}
+
+// ---------- Italian Chat ----------
+let chatHistory = []; // {role: 'user'|'assistant', content: string}
+let chatRecognition = null;
+let chatIsRecording = false;
+
+function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const text = input.value.trim();
+    if (!text) return;
+
+    if (!apiKey) {
+        showToast('API key needed. Add it in Word Import > API Settings.');
+        return;
+    }
+
+    // Stop mic so it doesn't write the old transcript back into the box
+    if (chatIsRecording) stopChatMic();
+
+    input.value = '';
+    input.style.height = 'auto';
+    appendChatBubble('user', text);
+    chatHistory.push({ role: 'user', content: text });
+    fetchChatReply();
+}
+
+function chatInputKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+    }
+}
+
+async function fetchChatReply() {
+    const btn = document.getElementById('chat-send-btn');
+    btn.disabled = true;
+
+    // Show typing indicator
+    const typingEl = appendChatBubble('tutor', '...', true);
+
+    const cefr = document.getElementById('chat-cefr').value;
+
+    // Build known words list for context
+    const knownWords = wordBank.map(w => w.italian.toLowerCase());
+    const knownSnippet = knownWords.length > 0
+        ? knownWords.slice(0, 400).join(', ')
+        : '';
+
+    const knownWordsContext = knownSnippet
+        ? `\n\nThe learner's vocabulary so far: [${knownSnippet}]\nStrongly prefer using words from this list. For any words outside this list, use only the most common, basic vocabulary appropriate for ${cefr} level.`
+        : '';
+
+    const systemPrompt = `You are a friendly Italian conversation tutor. Speak to the user in Italian at CEFR level ${cefr}. Keep your replies short (1-3 sentences). Use simple vocabulary and grammar appropriate for ${cefr}. If the user makes a mistake, gently correct it in your reply. After your Italian response, add a line break and provide the English translation in parentheses.${knownWordsContext}`;
+
+    const messages = [
+        ...chatHistory.map(m => ({ role: m.role, content: m.content })),
+    ];
+
+    try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true',
+            },
+            body: JSON.stringify({
+                model: selectedModel,
+                max_tokens: 1024,
+                system: systemPrompt,
+                messages: messages,
+            }),
+        });
+
+        if (!response.ok) {
+            typingEl.remove();
+            showToast('Chat error: ' + response.status);
+            btn.disabled = false;
+            return;
+        }
+
+        const data = await response.json();
+        const reply = data.content?.[0]?.text || 'Mi dispiace, riprova.';
+
+        chatHistory.push({ role: 'assistant', content: reply });
+
+        // Replace typing indicator with actual reply
+        typingEl.remove();
+
+        // Split Italian and English translation
+        const parts = reply.split(/\n\s*\(/);
+        const italianText = parts[0].trim();
+        const englishText = parts.length > 1 ? parts.slice(1).join('(').replace(/\)\s*$/, '').trim() : '';
+
+        appendChatBubble('tutor', italianText, false, englishText);
+
+        // Auto-play the reply
+        playChatText(italianText);
+    } catch (err) {
+        typingEl.remove();
+        showToast('Chat error: ' + err.message);
+    }
+
+    btn.disabled = false;
+}
+
+function appendChatBubble(role, text, isTyping = false, translation = '') {
+    const container = document.getElementById('chat-messages');
+
+    // Remove welcome message on first message
+    const welcome = container.querySelector('.chat-welcome');
+    if (welcome) welcome.remove();
+
+    const bubble = document.createElement('div');
+    bubble.className = `chat-bubble ${role}` + (isTyping ? ' typing' : '');
+    bubble.textContent = text;
+
+    if (translation) {
+        const transEl = document.createElement('span');
+        transEl.className = 'chat-translation';
+        transEl.textContent = translation;
+        bubble.appendChild(transEl);
+    }
+
+    if (role === 'tutor' && !isTyping) {
+        const playBtn = document.createElement('button');
+        playBtn.className = 'chat-play-btn';
+        playBtn.innerHTML = '&#9654; Play';
+        playBtn.onclick = () => playChatText(text);
+        bubble.appendChild(playBtn);
+    }
+
+    container.appendChild(bubble);
+    container.scrollTop = container.scrollHeight;
+    return bubble;
+}
+
+async function playChatText(text) {
+    const speed = parseFloat(document.getElementById('chat-speed').value) || 0.85;
+
+    if (ttsEngine === 'openai' && openaiApiKey) {
+        try {
+            await speakWithOpenAI(text, 'it', speed);
+        } catch (err) {
+            console.error('OpenAI TTS failed, falling back to browser', err);
+            playChatBrowser(text, speed);
+        }
+    } else {
+        playChatBrowser(text, speed);
+    }
+}
+
+function playChatBrowser(text, speed) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'it-IT';
+    const itVoices = window._itVoices || [];
+    if (itVoices.length > 0) utterance.voice = itVoices[0];
+    utterance.rate = speed;
+    window.speechSynthesis.speak(utterance);
+}
+
+function toggleChatMic() {
+    if (chatIsRecording) {
+        stopChatMic();
+    } else {
+        startChatMic();
+    }
+}
+
+function startChatMic() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+        showToast('Speech recognition not supported in this browser.');
+        return;
+    }
+
+    chatRecognition = new SpeechRecognition();
+    chatRecognition.lang = 'it-IT';
+    chatRecognition.interimResults = true;
+    chatRecognition.continuous = true;
+
+    const input = document.getElementById('chat-input');
+    const micBtn = document.getElementById('chat-mic-btn');
+
+    chatRecognition.onstart = () => {
+        chatIsRecording = true;
+        micBtn.classList.add('recording');
+    };
+
+    chatRecognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = 0; i < event.results.length; i++) {
+            transcript += event.results[i][0].transcript;
+        }
+        input.value = transcript;
+    };
+
+    chatRecognition.onend = () => {
+        // Restart automatically if user hasn't manually stopped
+        if (chatIsRecording) {
+            try {
+                chatRecognition.start();
+            } catch (e) {
+                // already started, ignore
+            }
+            return;
+        }
+        micBtn.classList.remove('recording');
+    };
+
+    chatRecognition.onerror = (event) => {
+        if (event.error === 'no-speech') return; // keep listening
+        chatIsRecording = false;
+        micBtn.classList.remove('recording');
+        showToast('Mic error: ' + event.error);
+    };
+
+    chatRecognition.start();
+}
+
+function stopChatMic() {
+    chatIsRecording = false;
+    if (chatRecognition) {
+        chatRecognition.stop();
+    }
+}
+
+function clearChatHistory() {
+    chatHistory = [];
+    const container = document.getElementById('chat-messages');
+    container.innerHTML = '<div class="chat-welcome"><p>Press the microphone to speak, or type a message in Italian.</p><p>Your tutor will respond at your level.</p></div>';
+    showToast('Chat cleared');
 }
 
 // ---------- Persistence ----------
