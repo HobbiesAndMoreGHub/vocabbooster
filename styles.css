@@ -1945,6 +1945,40 @@ main {
     color: var(--text-primary);
 }
 
+.chat-voice-help {
+    margin-bottom: 0.75rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    font-size: 0.85rem;
+}
+
+.chat-voice-help summary {
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+    font-weight: 600;
+    user-select: none;
+}
+
+.chat-voice-help summary:hover {
+    color: var(--accent-red);
+}
+
+.chat-voice-help-body {
+    padding: 0 0.75rem 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.chat-voice-help-body ol {
+    margin: 0.25rem 0 0.75rem 1.25rem;
+}
+
+.chat-voice-help-body p {
+    margin-top: 0.5rem;
+}
+
 .chat-messages {
     border: 1.5px solid var(--border);
     border-radius: var(--radius-md);
@@ -1990,6 +2024,31 @@ main {
     color: var(--text-primary);
     border: 1px solid var(--border);
     border-bottom-left-radius: 4px;
+}
+
+.chat-bubble .chat-user-translation {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.2rem;
+}
+
+.chat-bubble .chat-correction {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--accent-gold);
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+}
+
+.chat-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0.4rem 0;
+}
+
+.chat-bubble .chat-reply-text {
+    display: block;
 }
 
 .chat-bubble .chat-translation {

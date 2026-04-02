@@ -4534,7 +4534,16 @@ async function fetchChatReply() {
         ? `\n\nThe learner's vocabulary so far: [${knownSnippet}]\nStrongly prefer using words from this list. For any words outside this list, use only the most common, basic vocabulary appropriate for ${cefr} level.`
         : '';
 
-    const systemPrompt = `You are a friendly Italian conversation tutor. Speak to the user in Italian at CEFR level ${cefr}. Keep your replies short (1-3 sentences). Use simple vocabulary and grammar appropriate for ${cefr}. If the user makes a mistake, gently correct it in your reply. After your Italian response, add a line break and provide the English translation in parentheses.${knownWordsContext}`;
+    const systemPrompt = `You are a friendly Italian conversation tutor. Speak to the user in Italian at CEFR level ${cefr}. Use simple vocabulary and grammar appropriate for ${cefr}.
+
+Always reply in EXACTLY this format with these three labeled sections:
+
+Translation: [English translation of what the user just said]
+Correction: [If the user made a grammar/spelling mistake, briefly explain it here. If no mistakes, write "None"]
+Response: [Your Italian reply (1-3 sentences)]
+English: [English translation of your Italian reply]
+
+Never skip any section. Always include all four labels.${knownWordsContext}`;
 
     const messages = [
         ...chatHistory.map(m => ({ role: m.role, content: m.content })),
@@ -4572,12 +4581,19 @@ async function fetchChatReply() {
         // Replace typing indicator with actual reply
         typingEl.remove();
 
-        // Split Italian and English translation
-        const parts = reply.split(/\n\s*\(/);
-        const italianText = parts[0].trim();
-        const englishText = parts.length > 1 ? parts.slice(1).join('(').replace(/\)\s*$/, '').trim() : '';
+        // Parse structured response
+        const translationMatch = reply.match(/Translation:\s*(.+?)(?:\n|$)/i);
+        const correctionMatch = reply.match(/Correction:\s*(.+?)(?:\n|$)/i);
+        const responseMatch = reply.match(/Response:\s*(.+?)(?:\n|$)/i);
+        const englishMatch = reply.match(/English:\s*(.+?)(?:\n|$)/i);
 
-        appendChatBubble('tutor', italianText, false, englishText);
+        const userTranslation = translationMatch ? translationMatch[1].trim() : '';
+        const correction = correctionMatch ? correctionMatch[1].trim() : '';
+        const italianText = responseMatch ? responseMatch[1].trim() : reply.trim();
+        const englishText = englishMatch ? englishMatch[1].trim() : '';
+        const hasCorrection = correction && correction.toLowerCase() !== 'none' && correction !== '-';
+
+        appendChatBubble('tutor', italianText, false, englishText, userTranslation, hasCorrection ? correction : '');
 
         // Auto-play the reply
         playChatText(italianText);
@@ -4589,7 +4605,7 @@ async function fetchChatReply() {
     btn.disabled = false;
 }
 
-function appendChatBubble(role, text, isTyping = false, translation = '') {
+function appendChatBubble(role, text, isTyping = false, translation = '', userTranslation = '', correction = '') {
     const container = document.getElementById('chat-messages');
 
     // Remove welcome message on first message
@@ -4598,7 +4614,30 @@ function appendChatBubble(role, text, isTyping = false, translation = '') {
 
     const bubble = document.createElement('div');
     bubble.className = `chat-bubble ${role}` + (isTyping ? ' typing' : '');
-    bubble.textContent = text;
+
+    if (role === 'tutor' && !isTyping && (userTranslation || correction)) {
+        // Show translation of user's message and correction before the reply
+        if (userTranslation) {
+            const utEl = document.createElement('span');
+            utEl.className = 'chat-user-translation';
+            utEl.textContent = 'You said: ' + userTranslation;
+            bubble.appendChild(utEl);
+        }
+        if (correction) {
+            const corrEl = document.createElement('span');
+            corrEl.className = 'chat-correction';
+            corrEl.textContent = 'Correction: ' + correction;
+            bubble.appendChild(corrEl);
+        }
+        const divider = document.createElement('hr');
+        divider.className = 'chat-divider';
+        bubble.appendChild(divider);
+    }
+
+    const textNode = document.createElement('span');
+    textNode.className = 'chat-reply-text';
+    textNode.textContent = text;
+    bubble.appendChild(textNode);
 
     if (translation) {
         const transEl = document.createElement('span');
